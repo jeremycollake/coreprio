@@ -14,7 +14,6 @@
 *.res
 *.obj
 *.log
-*.txt
 /corepriow/x64/Release
 *.aps
 *.filters
@@ -24,3 +23,8 @@
 *.pdb
 *.idb
 /x64
+/corepriow/x64/Debug/corepriow.vcxproj.FileListAbsolute.txt
+/cpriocsvc/x64/Debug/cpriocsvc.vcxproj.FileListAbsolute.txt
+/cpriocsvc/x64/Release/cpriocsvc.vcxproj.FileListAbsolute.txt
+/libcoreprio/x64/Debug/libcoreprio.vcxproj.FileListAbsolute.txt
+/libcoreprio/x64/Release/libcoreprio.vcxproj.FileListAbsolute.txt

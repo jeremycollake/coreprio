@@ -1,0 +1,4 @@
+LangString SecCore ${LANG_ENGLISH} "Core package"
+LangString DESC_SecCore ${LANG_ENGLISH} "Coreprio app"
+LangString SecLaunch ${LANG_ENGLISH} "Launch Coreprio"
+LangString DESC_SecLaunch ${LANG_ENGLISH} "Launch Coreprio after installation."

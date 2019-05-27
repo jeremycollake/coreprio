@@ -1,0 +1,3 @@
+General Disclaimer and Liability Release: USE AT YOUR OWN RISK
+
+This software is provided without any warranty, express or implied. The user should be considered experimental software and proceed with caution. By continuing, the user accept liability for all potential risks, consequences and damages arising from the use or misuse of this software. The user understands and agrees that the author and any affiliated entities should NOT be held liable for any damage or loss claims arising from the use or misuse of this software.
