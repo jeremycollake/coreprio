@@ -1,0 +1,1 @@
+del ..\x64\release\corepriosetup.exe

@@ -1,0 +1,26 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/CorePrio
+/coreprio/x64
+/corepriow/x64/Debug/corepriow.tlog
+/corepriow/x64/Debug/corepriow.Build.CppClean.log
+/corepriow/x64/Debug/UpdateCheckThread.obj
+/corepriow/x64/Debug/vc142.pdb
+/corepriow/x64/Debug/vc142.idb
+/corepriow/x64/Release/corepriow.tlog
+*.pch
+*.res
+*.obj
+*.log
+*.txt
+/corepriow/x64/Release
+*.aps
+*.filters
+*.user
+*.tlog
+*.cache
+*.pdb
+*.idb
+/x64
