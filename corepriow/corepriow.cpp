@@ -330,9 +330,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				DEBUG_PRINT(L"Update check finished. Handling results.");
 				
 				// now show or hide the 'One click update' option, which will be available only to licensed users					
-				if (IsOnlineVersionNewer(CURRENT_VERSION, g_csLatestVersionText))
+				if (TextVersionToULONG(CURRENT_VERSION) < TextVersionToULONG(g_csLatestVersionText))
 				{
-					DEBUG_PRINT(L"Update available. Signalling.");
+					DEBUG_PRINT(L"Update available. Signaling.");
 					csTemp.Format(szUpdateAvailableFmt, g_csLatestVersionText);
 					SetEvent(hUpdateIsPending);
 					// notify user of update available (also shown in dialog)					

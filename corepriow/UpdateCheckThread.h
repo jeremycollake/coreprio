@@ -13,9 +13,17 @@
 #endif
 
 DWORD WINAPI UpdateCheckThread(LPVOID lpV);
-bool IsOnlineVersionNewer(const WCHAR *pwszCurrentVersion, const WCHAR *pwszNewVersion);
-bool DownloadFile(const WCHAR *pwszProductName,
+
+unsigned long TextVersionToULONG(const WCHAR* pwszVer);
+
+bool DownloadText(const WCHAR *pwszProductName,
 	const WCHAR *pwszUrl,
-	char **ppszNewBuffer,
-	int *pnReturnedBufferSizeInBytes = NULL);
+	char** ppszRetBuffer,
+	unsigned int * pnRetBufSize = NULL);
+
+bool DownloadBinaryFile(const WCHAR* pwszProductName,
+	const WCHAR* pwszUrl,
+	unsigned char** ppszRetBuffer,
+	unsigned int* pnRetBufSize = NULL);
+
 bool PerformAutomaticUpdate();
