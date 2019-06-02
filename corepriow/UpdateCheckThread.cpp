@@ -21,14 +21,14 @@ namespace BitsumInet
 unsigned long TextVersionToULONG(const WCHAR* pwszTextVersion)
 {	
 	_ASSERT(pwszTextVersion);
-	if (!pwszTextVersion) return 0;
+	if (!pwszTextVersion || wcslen(pwszTextVersion)<7) return 0;
 	unsigned int n1, n2, n3, n4 = 0;
 	swscanf_s(pwszTextVersion, L"%u.%u.%u.%u", &n1, &n2, &n3, &n4);
 	return (n1 << 24 | n2 << 16 | n3 << 8 | n4);
 }
 
 // referencer must use event passed to UpdateCheckThread to signal when/if filled (todo: should remove in refactor)
-CString g_csLatestVersionText;
+CString g_csLatestVersionText=L"0.0.0.0";
 
 //
 // UpdateCheckThread

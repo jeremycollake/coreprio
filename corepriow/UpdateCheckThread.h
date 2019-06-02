@@ -6,10 +6,10 @@
 */
 #pragma once
 
-#ifndef BETA
-#define UPDATE_CHECK_URL L"https://update.bitsum.com/versioninfo/coreprio/"
-#else
+#ifdef BETA
 #define UPDATE_CHECK_URL L"https://update.bitsum.com/versioninfo/coreprio/beta/"
+#else
+#define UPDATE_CHECK_URL L"https://update.bitsum.com/versioninfo/coreprio/"
 #endif
 
 DWORD WINAPI UpdateCheckThread(LPVOID lpV);
