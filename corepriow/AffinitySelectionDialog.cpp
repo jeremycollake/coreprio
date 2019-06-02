@@ -7,20 +7,6 @@
 #include "stdafx.h"
 #include "AffinitySelectionDialog.h"
 
-////////////////////////////////////////////////////////////////////////////////////////////////
-// Affinity selection dialog procedure
-//
-// lParam== unsigned __int64 *
-//
-//  returns:
-//
-//		SET ptr given by lParam (stored as Wnd LongPtr)
-//
-//       0 = UNSET_AFFINITY_MASK error or canceled selection
-//       1 = successful selection, returns affinity in lParam pointer
-//
-//
-
 void SetCPUAffinityInDialog(HWND hDlg, ULONGLONG nAffinityMask)
 {
 	SYSTEM_INFO sysInfo;
@@ -125,6 +111,17 @@ void InitializeNumaNodeCheckboxes(HWND hDlg)
 	}
 }
 
+//
+// Affinity selection dialog
+//
+// In:
+//  Affinity mask pointed to by lParam
+// Out:
+//  Selected affinity mask pointed to by lParam
+// Returns:
+//  TRUE if selected (and output affinity filled)
+//  FALSE if canceled
+//
 INT_PTR CALLBACK SelectAffinityDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	unsigned __int64 dwAffinity;
