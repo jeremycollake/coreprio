@@ -182,13 +182,13 @@ bool ThreadManager::Begin(HANDLE hEvent)
 							unsigned __int64 bitvecSystemAffinity = 0;
 
 							HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pe32.th32ProcessID);
-							if (hProcess != INVALID_HANDLE_VALUE)
+							if (hProcess)
 							{
 								GetProcessAffinityMask(hProcess, static_cast<PDWORD_PTR>(&bitvecProcessAffinity), static_cast<PDWORD_PTR>(&bitvecSystemAffinity));
 								if (bitvecProcessAffinity && (bitvecProcessAffinity == bitvecSystemAffinity))
 								{
 									HANDLE hProcessSet = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_SET_INFORMATION, FALSE, pe32.th32ProcessID);
-									if (hProcessSet != INVALID_HANDLE_VALUE)
+									if (hProcessSet)
 									{
 										Log.Write(L"\n Applying NUMA fix for process [%d] %s to %08X%08X", pe32.th32ProcessID, pe32.szExeFile, static_cast<UINT32>((bitvecProcessAffinity >> 32) & 0xFFFFFFFF), static_cast<UINT32>(bitvecProcessAffinity) & 0xFFFFFFFF);
 										if (TRUE == SetProcessAffinityMask(hProcessSet, bitvecProcessAffinity))
