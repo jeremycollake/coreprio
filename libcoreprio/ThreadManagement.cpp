@@ -187,7 +187,7 @@ bool ThreadManager::Begin(HANDLE hEvent)
 								GetProcessAffinityMask(hProcess, static_cast<PDWORD_PTR>(&bitvecProcessAffinity), static_cast<PDWORD_PTR>(&bitvecSystemAffinity));
 								if (bitvecProcessAffinity && (bitvecProcessAffinity == bitvecSystemAffinity))
 								{
-									HANDLE hProcessSet = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_SET_INFORMATION, FALSE, pe32.th32ProcessID);
+									HANDLE hProcessSet = OpenProcess(PROCESS_SET_INFORMATION | PROCESS_QUERY_INFORMATION, FALSE, pe32.th32ProcessID);
 									if (hProcessSet)
 									{
 										Log.Write(L"\n Applying NUMA fix for process [%d] %s to %08X%08X", pe32.th32ProcessID, pe32.szExeFile, static_cast<UINT32>((bitvecProcessAffinity >> 32) & 0xFFFFFFFF), static_cast<UINT32>(bitvecProcessAffinity) & 0xFFFFFFFF);
@@ -247,12 +247,8 @@ bool ThreadManager::Begin(HANDLE hEvent)
 				{
 					if (mapIncludedProcesses.find(te32.th32OwnerProcessID) != mapIncludedProcesses.end())
 					{						
-						HANDLE hThread = OpenThread(THREAD_SET_INFORMATION | THREAD_QUERY_INFORMATION, FALSE, te32.th32ThreadID);
-						if (NULL == hThread)
-						{
-							verbosewprintf(L"\n ! ERROR opening TID 0x%08X", te32.th32ThreadID);
-						}
-						else
+						HANDLE hThread = OpenThread(THREAD_SET_INFORMATION | THREAD_QUERY_INFORMATION, FALSE, te32.th32ThreadID);						
+						if(hThread)
 						{
 							PROCESSOR_NUMBER IdealCPU;
 							memset(&IdealCPU, 0, sizeof(IdealCPU));
@@ -380,7 +376,7 @@ bool ThreadManager::Begin(HANDLE hEvent)
 
 					// restore affinity to 'all cpus'
 					HANDLE hThread = OpenThread(THREAD_SET_INFORMATION | THREAD_QUERY_INFORMATION, FALSE, c);
-					if (NULL != hThread)
+					if (hThread)
 					{
 						unsigned __int64 dwPriorAffinity = SetThreadAffinityMask(hThread, sysInfo.dwActiveProcessorMask);
 						if (0 == dwPriorAffinity)
@@ -452,9 +448,8 @@ void ThreadManager::UnmanageAllThreads()
 	for (auto &c : ThreadsActivelyManaged)
 	{
 		// restore affinity to 'all cpus'
-		HANDLE hThread = OpenThread(THREAD_SET_INFORMATION | THREAD_QUERY_INFORMATION, FALSE, c);
-		_ASSERT(hThread);
-		if (NULL != hThread)
+		HANDLE hThread = OpenThread(THREAD_SET_INFORMATION | THREAD_QUERY_INFORMATION, FALSE, c);		
+		if (hThread)
 		{
 			DWORD_PTR dwPriorAffinity = SetThreadAffinityMask(hThread, sysInfo.dwActiveProcessorMask);
 			if (0 == dwPriorAffinity)
