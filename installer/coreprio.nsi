@@ -10,8 +10,8 @@ SetCompressor /Solid lzma
 SetCompressorDictSize 32
 
 ; version information
-!define PL_Version_File "0.0.6.7"
-!define PL_Version_Text "0.0.6.7"
+!define PL_Version_File "0.0.6.8"
+!define PL_Version_Text "0.0.6.8"
 !define PL_Version_Major "0"
 !define PL_Version_Minor "6"
 
