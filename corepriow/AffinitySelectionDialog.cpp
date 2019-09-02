@@ -124,7 +124,7 @@ void InitializeNumaNodeCheckboxes(HWND hDlg)
 //
 INT_PTR CALLBACK SelectAffinityDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	unsigned __int64 dwAffinity;
+	unsigned __int64 dwAffinity = 0;
 	unsigned __int64 *pInOut = NULL;
 	unsigned int nI;
 	static bool g_bAffinityDialogChangesMade = false;
