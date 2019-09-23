@@ -3,14 +3,13 @@
 * (c)2019 Jeremy Collake <jeremy@bitsum.com>, Bitsum LLC
 * https://bitsum.com/portfolio/coreprio
 * See LICENSE.TXT
+*
+* ! LEGACY CODE WARNING (15+ years)
+*
 */
 #include "stdafx.h"
 #include "ServiceManager.h"
 
-void ServiceManager::NotifyRefreshNeeded()
-{
-	m_bRefreshNeeded = true;
-}
 bool ServiceManager::MakeSureServiceIsEnabled(const WCHAR *ptszServiceName)
 {
 	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_MODIFY_BOOT_CONFIG | SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE); // TODO: redudency in permissions here
@@ -52,9 +51,7 @@ bool ServiceManager::MakeSureServiceIsEnabled(const WCHAR *ptszServiceName)
 		return false;
 	}
 	if (pServiceConfig->dwStartType == SERVICE_DISABLED)
-	{
-		// TODO: We need 
-		//DbgPrintf(L"Service disabled, enabling it for on-demand starting...");
+	{		
 		pServiceConfig->dwStartType = SERVICE_DEMAND_START;
 		//serviceConfig.dwStartType=SERVICE_AUTO_START;
 		if (!ChangeServiceConfig(scTargetService,
@@ -101,7 +98,7 @@ bool ServiceManager::DoesServiceExist(const WCHAR *ptszServiceName)
 	return true;
 }
 
-bool ServiceManager::Stop(const WCHAR *ptszServiceName, bool bWait)
+bool ServiceManager::Stop(const WCHAR *ptszServiceName, const bool bWait)
 {
 	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_MODIFY_BOOT_CONFIG | SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE); // TODO: redudency in permissions here
 	if (!scServiceManager)
@@ -164,24 +161,22 @@ bool ServiceManager::Stop(const WCHAR *ptszServiceName, bool bWait)
 
 }
 
-bool ServiceManager::Start(const WCHAR *ptszServiceName, bool bWait)
+bool ServiceManager::Start(const WCHAR *ptszServiceName, const bool bWait)
 {
 	return MakeSureServiceIsStarted(ptszServiceName, bWait);
 }
 
-bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, bool bWait)
+bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, const bool bWait)
 {
 	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_MODIFY_BOOT_CONFIG | SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE); // TODO: redudency in permissions here
 	if (!scServiceManager)
 	{
-		//DbgPrintf(L"ServiceManager - ");
 		return false;
 	}
 	// now open the target service
 	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, SERVICE_ALL_ACCESS); //SERVICE_INTERROGATE|SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS|SERVICE_START|SERVICE_STOP); 
 	if (!scTargetService)
-	{
-		//DbgPrintf(L"ServiceManager - ");
+	{		
 		CloseServiceHandle(scServiceManager);
 		return false;
 	}
@@ -189,8 +184,7 @@ bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, bool
 	SERVICE_STATUS serviceStatus;
 	memset(&serviceStatus, 0, sizeof(SERVICE_STATUS));
 	if (!QueryServiceStatus(scTargetService, &serviceStatus))
-	{
-		//DbgPrintf(L"ServiceManager - ");
+	{		
 		CloseServiceHandle(scTargetService);
 		CloseServiceHandle(scServiceManager);
 		return false;
@@ -200,8 +194,7 @@ bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, bool
 		if (serviceStatus.dwCurrentState != SERVICE_START_PENDING)
 		{
 			if (!::StartService(scTargetService, 0, NULL))
-			{
-				//DbgPrintf(L"ServiceManager - ");
+			{				
 				CloseServiceHandle(scTargetService);
 				CloseServiceHandle(scServiceManager);
 				return false;
@@ -211,7 +204,7 @@ bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, bool
 	unsigned nI = 0;
 	if (bWait)
 	{
-		//DbgPrintf(L"ServiceManager - starting - waiting to complete");
+		DEBUG_PRINT(L"ServiceManager - waiting for start to complete");
 		// service handles are NOT waitable objects
 		// MSDN says to use polling, so we will
 		// there a hint provided in the service config, but probably useless
@@ -229,11 +222,11 @@ bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, bool
 	_ASSERT(nI < 60);
 	if (nI >= 60)
 	{
-		//DbgPrintf(L"ServiceManager - gave up waiting!!");
+		DEBUG_PRINT(L"ServiceManager - gave up waiting!!");
 	}
 	else
 	{
-		//DbgPrintf(L"ServiceManager - started");
+		DEBUG_PRINT(L"ServiceManager - started %s", ptszServiceName);
 	}
 	CloseServiceHandle(scTargetService);
 	CloseServiceHandle(scServiceManager);
@@ -364,119 +357,3 @@ bool ServiceManager::IsServiceStarted(const WCHAR *ptszServiceName)
 	return true;
 }
 
-bool ServiceManager::GetFirstServiceByName(WCHAR *ptszServiceName, int ncch, WCHAR *ptszServiceDisplayName, int ncch2, SERVICE_STATUS_PROCESS *pnServiceStatus)
-{
-	m_nCurrentEnumerationPointer = 0;
-	EnumerateServiceNames();
-	return GetNextServiceByName(ptszServiceName, ncch, ptszServiceDisplayName, ncch2, pnServiceStatus);
-}
-
-bool ServiceManager::GetNextServiceByName(WCHAR *ptszServiceName, int ncch, WCHAR *ptszServiceDisplayName, int ncch2, SERVICE_STATUS_PROCESS *pnServiceStatus)
-{
-	EnterCriticalSection(&m_critServicesEnumerationVectors);
-	if (m_nCurrentEnumerationPointer < (int)m_vcsServiceNames.size())
-	{
-		wcsncpy_s(ptszServiceName, ncch, m_vcsServiceNames[m_nCurrentEnumerationPointer].GetBuffer(), _TRUNCATE);
-		wcsncpy_s(ptszServiceDisplayName, ncch2, m_vcsServiceDisplayNames[m_nCurrentEnumerationPointer].GetBuffer(), _TRUNCATE);
-		*pnServiceStatus = m_vnServiceStatuses[m_nCurrentEnumerationPointer];
-		// do AFTERWARDS
-		m_nCurrentEnumerationPointer++;
-		LeaveCriticalSection(&m_critServicesEnumerationVectors);
-		return true;
-	}
-	LeaveCriticalSection(&m_critServicesEnumerationVectors);
-	return false;
-}
-
-
-
-bool ServiceManager::EnumerateServiceNames()
-{
-	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, STANDARD_RIGHTS_READ | SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE);
-	if (!scServiceManager)
-	{
-		return false;
-	}
-
-	// then simply use to fill m_vcsServiceNames
-	// EnumServicesStatusEx	
-	size_t nCurrentSize = 64 * 1024;
-	BYTE *pBuffer = (BYTE *)malloc(nCurrentSize);
-	DWORD dwBytesNeeded = 0;
-	DWORD dwServicesReturned = 0;
-	DWORD dwCurrentEnumerationIndex_ResumeHandle = 0;	//mandatory
-	while (EnumServicesStatusEx(scServiceManager,
-		SC_ENUM_PROCESS_INFO,
-		SERVICE_WIN32,			// NOTE - TODO - This is just giving Win32 services, do we want Kernel services too?
-		SERVICE_STATE_ALL,
-		pBuffer,
-		(DWORD)nCurrentSize,
-		&dwBytesNeeded,
-		&dwServicesReturned,
-		&dwCurrentEnumerationIndex_ResumeHandle,
-		NULL) == ERROR_MORE_DATA) // group name
-	{
-		_ASSERT(dwBytesNeeded > nCurrentSize);
-		nCurrentSize = dwBytesNeeded;
-		pBuffer = (BYTE *)realloc(pBuffer, nCurrentSize);
-	}
-	// no services
-	if (!dwServicesReturned)
-	{
-		if (pBuffer) free(pBuffer);
-		return false;
-	}
-
-	EnterCriticalSection(&m_critServicesEnumerationVectors);
-	// 
-	// we now have all service names and info, so just go through it
-	//
-	ENUM_SERVICE_STATUS_PROCESS *pServices = (ENUM_SERVICE_STATUS_PROCESS *)pBuffer;
-	for (unsigned int nI = 0; nI < dwServicesReturned; nI++)
-	{
-		m_vcsServiceNames.push_back(pServices->lpServiceName);
-		m_vcsServiceDisplayNames.push_back(pServices->lpDisplayName);
-		m_vnServiceStatuses.push_back(pServices->ServiceStatusProcess);
-		pServices++;
-	}
-	LeaveCriticalSection(&m_critServicesEnumerationVectors);
-	free(pBuffer);
-	m_bRefreshNeeded = false;
-	return true;
-}
-
-// can return a linked list - so requires custom dealloc function
-bool ServiceManager::IsProcessAService(DWORD dwPID, vector<CMyServiceInfo> *pvcMyServiceInfo, bool bForceReenumeration)
-{
-	if (!m_vnServiceStatuses.size() || bForceReenumeration || m_bRefreshNeeded)
-	{
-		EnumerateServiceNames();
-	}
-	EnterCriticalSection(&m_critServicesEnumerationVectors);
-	unsigned int nFoundCount = 0;
-	for (unsigned int nI = 0; nI < m_vnServiceStatuses.size(); nI++)
-	{
-		if (m_vnServiceStatuses[nI].dwProcessId == dwPID)
-		{
-			// ust want yes or no, so giev it to them
-			if (!pvcMyServiceInfo)
-			{
-				LeaveCriticalSection(&m_critServicesEnumerationVectors);
-				return true;
-			}
-			CMyServiceInfo cInfo;
-			memcpy(&cInfo.serviceStatus, &m_vnServiceStatuses[nI], sizeof(SERVICE_STATUS_PROCESS));
-			cInfo.csFriendlyName = m_vcsServiceDisplayNames[nI];
-			cInfo.csServiceName = m_vcsServiceNames[nI];
-			pvcMyServiceInfo->push_back(cInfo);
-			nFoundCount++;	// now next time allocate
-		}
-	}
-	//
-	// TODO deallocation of list handled by overload of 'delete' operator on class, but may want to make sure
-	// it works in a unit test... 
-	// ^^ NOT WORKING - CALLLER *MUST* invoke Deallocate method to clear the results
-	//		
-	LeaveCriticalSection(&m_critServicesEnumerationVectors);
-	return nFoundCount ? true : false;
-}
