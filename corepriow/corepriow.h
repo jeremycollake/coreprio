@@ -54,3 +54,5 @@
 #define REG_VALUE_EXCLUSIONS L"Exclusions"
 
 #define COREPRIO_SERVICE_NAME L"cpriosvc"
+
+#define COREPRIO_SERVICE_WAIT_TIME_MS (10*1000)

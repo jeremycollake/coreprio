@@ -10,15 +10,15 @@
 #include "stdafx.h"
 #include "ServiceManager.h"
 
-bool ServiceManager::MakeSureServiceIsEnabled(const WCHAR *ptszServiceName)
+bool ServiceManager::EnsureServiceIsEnabled(const WCHAR *ptszServiceName)
 {
-	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_MODIFY_BOOT_CONFIG | SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE); // TODO: redudency in permissions here
+	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (!scServiceManager)
 	{
 		return false;
 	}
 	// now open the target service
-	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, SERVICE_ALL_ACCESS); //SERVICE_INTERROGATE|SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS|SERVICE_START|SERVICE_STOP); 
+	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, SERVICE_ALL_ACCESS);
 	if (!scTargetService)
 	{
 		CloseServiceHandle(scServiceManager);
@@ -27,33 +27,24 @@ bool ServiceManager::MakeSureServiceIsEnabled(const WCHAR *ptszServiceName)
 	// see if is enabled in its boot config, if not then enable it
 	DWORD dwBytesNeeded = 0;
 	QueryServiceConfig(scTargetService, NULL, 0, &dwBytesNeeded);
-	if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+	if(GetLastError() != ERROR_INSUFFICIENT_BUFFER)
 	{		
 		CloseServiceHandle(scTargetService);
 		CloseServiceHandle(scServiceManager);
 		return false;
 	}
-	dwBytesNeeded += 1024;	// in case it grows on us real fast
-	// but MSDN says this is max size
-	if (dwBytesNeeded > 8 * 1024)
-	{
-		dwBytesNeeded = 8 * 1024;
-	}
-	VOID *pserviceConfigRaw;
-	pserviceConfigRaw = (VOID *)new BYTE[dwBytesNeeded];	// in case it grows
-	memset(pserviceConfigRaw, 0, dwBytesNeeded);
-	QUERY_SERVICE_CONFIG *pServiceConfig = (QUERY_SERVICE_CONFIG *)pserviceConfigRaw;
+	QUERY_SERVICE_CONFIG *pServiceConfig = reinterpret_cast<QUERY_SERVICE_CONFIG *>(new BYTE[dwBytesNeeded]);
+	memset(pServiceConfig, 0, dwBytesNeeded);
 	if (!QueryServiceConfig(scTargetService, pServiceConfig, dwBytesNeeded, &dwBytesNeeded))
 	{
-		delete pserviceConfigRaw;		
+		delete pServiceConfig;
 		CloseServiceHandle(scTargetService);
 		CloseServiceHandle(scServiceManager);
 		return false;
 	}
 	if (pServiceConfig->dwStartType == SERVICE_DISABLED)
 	{		
-		pServiceConfig->dwStartType = SERVICE_DEMAND_START;
-		//serviceConfig.dwStartType=SERVICE_AUTO_START;
+		pServiceConfig->dwStartType = SERVICE_DEMAND_START;		
 		if (!ChangeServiceConfig(scTargetService,
 			pServiceConfig->dwServiceType,
 			pServiceConfig->dwStartType,
@@ -66,14 +57,14 @@ bool ServiceManager::MakeSureServiceIsEnabled(const WCHAR *ptszServiceName)
 			NULL,
 			pServiceConfig->lpDisplayName))
 		{
-			delete pserviceConfigRaw;
+			delete pServiceConfig;
 			CloseServiceHandle(scTargetService);
 			CloseServiceHandle(scServiceManager);
 			return false;
 		}
 		NotifyBootConfigStatus(TRUE);
 	}
-	delete pserviceConfigRaw;
+	delete pServiceConfig;
 	CloseServiceHandle(scTargetService);
 	CloseServiceHandle(scServiceManager);
 	return true;
@@ -98,15 +89,15 @@ bool ServiceManager::DoesServiceExist(const WCHAR *ptszServiceName)
 	return true;
 }
 
-bool ServiceManager::Stop(const WCHAR *ptszServiceName, const bool bWait)
+bool ServiceManager::Stop(const WCHAR *ptszServiceName, const unsigned int nMaxWaitMs)
 {
-	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_MODIFY_BOOT_CONFIG | SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE); // TODO: redudency in permissions here
+	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (!scServiceManager)
 	{
 		return false;
 	}
 	// now open the target service
-	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, SERVICE_ALL_ACCESS); //SERVICE_INTERROGATE|SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS|SERVICE_START|SERVICE_STOP); 
+	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, SERVICE_ALL_ACCESS);
 	if (!scTargetService)
 	{
 		CloseServiceHandle(scServiceManager);
@@ -123,58 +114,43 @@ bool ServiceManager::Stop(const WCHAR *ptszServiceName, const bool bWait)
 	}
 	if (serviceStatus.dwCurrentState != SERVICE_STOPPED && serviceStatus.dwCurrentState != SERVICE_STOP_PENDING)
 	{
-		if (!::ControlService(scTargetService, SERVICE_CONTROL_STOP, &serviceStatus))
+		if (!ControlService(scTargetService, SERVICE_CONTROL_STOP, &serviceStatus))
 		{
 			CloseServiceHandle(scTargetService);
 			CloseServiceHandle(scServiceManager);
 			return false;
 		}
-	}
-	unsigned nI = 0;
-	if (bWait)
+	}	
+	bool bR = nMaxWaitMs ? false : true; // return true (success) if we aren't waiting
+	if (nMaxWaitMs)
 	{
 		// service handles are NOT waitable objects
 		// MSDN says to use polling, so we will
-		// there a hint provided in the service config, but probably useless
-		// we're using a max of 1 minute to start
-		for (nI = 0; nI < 10; nI++)
-		{
-			Sleep(500);
+		// there a time to wait hint provided in the service config, but unreliable		
+		for (unsigned int nI = 0; nI < nMaxWaitMs/recheckStatusIntervalMs; nI++)
+		{			
 			if (IsServiceStopped(ptszServiceName))
 			{
+				bR = true;
 				break;
 			}
+			Sleep(recheckStatusIntervalMs);
 		}
-	}
-	bool bR = false;
-	if (nI >= 10)
-	{		
-		bR = false;
-	}
-	else
-	{		
-		bR = true;
-	}
+	}	
 	CloseServiceHandle(scTargetService);
 	CloseServiceHandle(scServiceManager);
 	return bR;
-
 }
 
-bool ServiceManager::Start(const WCHAR *ptszServiceName, const bool bWait)
+bool ServiceManager::Start(const WCHAR *ptszServiceName, const unsigned int nMaxWaitMs)
 {
-	return MakeSureServiceIsStarted(ptszServiceName, bWait);
-}
-
-bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, const bool bWait)
-{
-	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_MODIFY_BOOT_CONFIG | SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE); // TODO: redudency in permissions here
+	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 	if (!scServiceManager)
 	{
 		return false;
 	}
 	// now open the target service
-	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, SERVICE_ALL_ACCESS); //SERVICE_INTERROGATE|SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS|SERVICE_START|SERVICE_STOP); 
+	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, SERVICE_ALL_ACCESS);
 	if (!scTargetService)
 	{		
 		CloseServiceHandle(scServiceManager);
@@ -193,7 +169,7 @@ bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, cons
 	{
 		if (serviceStatus.dwCurrentState != SERVICE_START_PENDING)
 		{
-			if (!::StartService(scTargetService, 0, NULL))
+			if (!StartService(scTargetService, 0, NULL))
 			{				
 				CloseServiceHandle(scTargetService);
 				CloseServiceHandle(scServiceManager);
@@ -201,33 +177,23 @@ bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, cons
 			}
 		}
 	}
-	unsigned nI = 0;
-	if (bWait)
+	bool bR = nMaxWaitMs ? false : true; // return true (success) if we aren't waiting
+	if (nMaxWaitMs)
 	{
 		DEBUG_PRINT(L"ServiceManager - waiting for start to complete");
 		// service handles are NOT waitable objects
 		// MSDN says to use polling, so we will
-		// there a hint provided in the service config, but probably useless
-		// we're using a max of 30 seconds to start
-		Sleep(1000);	// do an initial 1 sec sleep, so first wait is 2x		
-		for (nI = 0; nI < 30; nI++)
-		{
-			Sleep(1000);
+		// there a time to wait hint provided in the service config, but unreliable
+		for (unsigned int nI = 0; nI < nMaxWaitMs/recheckStatusIntervalMs; nI++)
+		{			
 			if (IsServiceStarted(ptszServiceName))
 			{
+				bR = true;
 				break;
 			}
+			Sleep(recheckStatusIntervalMs);
 		}
-	}
-	_ASSERT(nI < 60);
-	if (nI >= 60)
-	{
-		DEBUG_PRINT(L"ServiceManager - gave up waiting!!");
-	}
-	else
-	{
-		DEBUG_PRINT(L"ServiceManager - started %s", ptszServiceName);
-	}
+	}	
 	CloseServiceHandle(scTargetService);
 	CloseServiceHandle(scServiceManager);
 	return true;
@@ -235,52 +201,42 @@ bool ServiceManager::MakeSureServiceIsStarted(const WCHAR *ptszServiceName, cons
 
 bool ServiceManager::IsServiceDisabled(const WCHAR *ptszServiceName)
 {
-	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, GENERIC_READ);
+	SC_HANDLE scServiceManager = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
 	if (!scServiceManager)
 	{		
 		return false;
-	}
-	// now open the target service
+	}	
 	SC_HANDLE scTargetService = OpenService(scServiceManager, ptszServiceName, STANDARD_RIGHTS_READ | SERVICE_QUERY_CONFIG);
 	if (!scTargetService)
 	{
 		CloseServiceHandle(scServiceManager);
 		return false;
-	}
-	// see if is enabled in its boot config, if not then enable it
+	}	
 	DWORD dwBytesNeeded = 0;
 	QueryServiceConfig(scTargetService, NULL, 0, &dwBytesNeeded);
-	if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+	if(GetLastError() != ERROR_INSUFFICIENT_BUFFER)
 	{		
 		CloseServiceHandle(scTargetService);
 		CloseServiceHandle(scServiceManager);
 		return false;
-	}
-	dwBytesNeeded += 1024;	// in case it grows on us real fast
-	// but MSDN says this is max size
-	if (dwBytesNeeded > 8 * 1024)
-	{
-		dwBytesNeeded = 8 * 1024;
-	}
-	VOID *pserviceConfigRaw;
-	pserviceConfigRaw = (VOID *)new BYTE[dwBytesNeeded];	// in case it grows
-	memset(pserviceConfigRaw, 0, dwBytesNeeded);
-	QUERY_SERVICE_CONFIG *pServiceConfig = (QUERY_SERVICE_CONFIG *)pserviceConfigRaw;
+	}	
+	QUERY_SERVICE_CONFIG *pServiceConfig = reinterpret_cast<QUERY_SERVICE_CONFIG*>(new BYTE[dwBytesNeeded]);
+	memset(pServiceConfig, 0, dwBytesNeeded);
 	if (!QueryServiceConfig(scTargetService, pServiceConfig, dwBytesNeeded, &dwBytesNeeded))
 	{
-		delete pserviceConfigRaw;		
+		delete pServiceConfig;
 		CloseServiceHandle(scTargetService);
 		CloseServiceHandle(scServiceManager);
 		return false;
 	}
 	if (pServiceConfig->dwStartType == SERVICE_DISABLED)
 	{
-		delete pserviceConfigRaw;		
+		delete pServiceConfig;
 		CloseServiceHandle(scTargetService);
 		CloseServiceHandle(scServiceManager);
 		return true;
 	}
-	delete pserviceConfigRaw;	
+	delete pServiceConfig;
 	CloseServiceHandle(scTargetService);
 	CloseServiceHandle(scServiceManager);
 	return false;
@@ -309,7 +265,7 @@ bool ServiceManager::IsServiceStopped(const WCHAR *ptszServiceName)
 		CloseServiceHandle(scServiceManager);
 		return false;
 	}
-	// don't allow pending because want to know if it is done starting
+	// don't allow pending because want to know if it is done stopping
 	if (serviceStatus.dwCurrentState != SERVICE_STOPPED) //|| serviceStatus.dwCurrentState!=SERVICE_START_PENDING)
 	{
 		CloseServiceHandle(scTargetService);
@@ -320,7 +276,6 @@ bool ServiceManager::IsServiceStopped(const WCHAR *ptszServiceName)
 	CloseServiceHandle(scServiceManager);
 	return true;
 }
-
 
 bool ServiceManager::IsServiceStarted(const WCHAR *ptszServiceName)
 {

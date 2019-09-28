@@ -84,7 +84,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		// stop service and any corepriow instance
 		if (gServiceManager.IsServiceStarted(COREPRIO_SERVICE_NAME))
 		{
-			if (false == gServiceManager.Stop(COREPRIO_SERVICE_NAME, true))
+			if (false == gServiceManager.Stop(COREPRIO_SERVICE_NAME, COREPRIO_SERVICE_WAIT_TIME_MS))
 			{
 				DEBUG_PRINT(L"Service failed to stop");
 			}
@@ -104,13 +104,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	{
 		DEBUG_PRINT(L"corepriow -stio");
 			
-		return gServiceManager.Stop(COREPRIO_SERVICE_NAME, true) ? 0 : 1;		
+		return gServiceManager.Stop(COREPRIO_SERVICE_NAME, COREPRIO_SERVICE_WAIT_TIME_MS) ? 0 : 1;
 	}
 	else if (csCommandLine.Find(L"-start") != -1)
 	{
 		DEBUG_PRINT(L"corepriow -start");
 
-		return gServiceManager.Start(COREPRIO_SERVICE_NAME, true) ? 0 : 1;		
+		return gServiceManager.Start(COREPRIO_SERVICE_NAME, COREPRIO_SERVICE_WAIT_TIME_MS) ? 0 : 1;		
 	}
 	// command line options not exclusive	
 	if (csCommandLine.Find(L"-tray") != -1)
